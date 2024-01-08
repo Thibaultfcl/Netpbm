@@ -66,16 +66,31 @@ func ReadPBM(filename string) (*PBM, error) {
 		line := scanner.Text()
 		tokens := strings.Fields(line)
 		row := make([]bool, width)
-		for i, token := range tokens {
-			if i >= width {
-				break
+		if magicNumber == "P1" {
+			for i, token := range tokens {
+				if i >= width {
+					break
+				}
+				if token == "1" {
+					row[i] = true
+				} else if token == "0" {
+					row[i] = false
+				} else {
+					return nil, fmt.Errorf("invalid character in data: %s", token)
+				}
 			}
-			if token == "1" {
-				row[i] = true
-			} else if token == "0" {
-				row[i] = false
-			} else {
-				return nil, fmt.Errorf("invalid character in data: %s", token)
+		}
+		if magicNumber == "P4" {
+			for _, hexValue := range tokens {
+				val, _ := strconv.ParseInt(hexValue, 16, 8)
+				binaryValue := fmt.Sprintf("%08b", val)
+				for _, bit := range binaryValue {
+					if bit == '1' {
+						row = append(row, true)
+					} else {
+						row = append(row, false)
+					}
+				}
 			}
 		}
 		data = append(data, row)
@@ -93,19 +108,27 @@ func ReadPBM(filename string) (*PBM, error) {
 	}, nil
 }
 
-func (pbm *PBM) Size() (int,int){
-    return pbm.Width, pbm.Height
+func HexToBinary(hexString string) (string, error) {
+	hexValue, err := strconv.ParseInt(hexString, 16, 8)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%08b", hexValue), nil
 }
 
-func (pbm *PBM) At(x, y int) bool{
-    return pbm.Data[x][y]
+func (pbm *PBM) Size() (int, int) {
+	return pbm.Width, pbm.Height
 }
 
-func (pbm *PBM) Set(x, y int, value bool){
-    pbm.Data[x][y] = value
+func (pbm *PBM) At(x, y int) bool {
+	return pbm.Data[x][y]
 }
 
-func (pbm *PBM) Save(filename string) error{
+func (pbm *PBM) Set(x, y int, value bool) {
+	pbm.Data[x][y] = value
+}
+
+func (pbm *PBM) Save(filename string) error {
 	fileName := "save.pbm"
 	file, err := os.Create(fileName)
 	if err != nil {
