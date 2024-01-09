@@ -142,7 +142,7 @@ func (pbm *PBM) Set(x, y int, value bool) {
 	pbm.Data[x][y] = value
 }
 
-func (pbm *PBM) Save(filename string) error {
+func (pbm *PBM) Save(filename string) error {           // not finished wet
 	file, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("error creating file: %v", err)
@@ -178,6 +178,22 @@ func (pbm *PBM) Invert() {
 			} else {
 				pbm.Data[x][y] = true
 			}
+		}
+	}
+}
+
+func (pbm *PBM) Flip() {
+	for x := 0; x < pbm.Height; x++ {
+		for i, j := 0, pbm.Width-1; i < j; i, j = i+1, j-1 {
+			pbm.Data[x][i], pbm.Data[x][j] = pbm.Data[x][j], pbm.Data[x][i]
+		}
+	}
+}
+
+func (pbm *PBM) Flop() {
+	for y := 0; y < pbm.Width; y++ {
+		for i, j := 0, pbm.Height-1; i < j; i, j = i+1, j-1 {
+			pbm.Data[i][y], pbm.Data[j][y] = pbm.Data[j][y], pbm.Data[i][y]
 		}
 	}
 }
