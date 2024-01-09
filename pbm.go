@@ -23,7 +23,6 @@ func ReadPBM(filename string) (*PBM, error) {
 
 	scanner := bufio.NewScanner(file)
 
-
 	// Read magic number
 	if !scanner.Scan() {
 		return nil, fmt.Errorf("failed to read magic number")
@@ -34,7 +33,6 @@ func ReadPBM(filename string) (*PBM, error) {
 		return nil, fmt.Errorf("unsupported PBM format: %s", magicNumber)
 	}
 
-	
 	// Skip comments and empty lines
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -42,7 +40,6 @@ func ReadPBM(filename string) (*PBM, error) {
 			break
 		}
 	}
-
 
 	// Read width and height
 	if scanner.Err() != nil {
@@ -53,20 +50,19 @@ func ReadPBM(filename string) (*PBM, error) {
 		return nil, fmt.Errorf("invalid dimensions line")
 	}
 
-	width, err := strconv.Atoi(dimensions[0])
+	width, err := strconv.Atoi(dimensions[0]) // largeur
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse width: %v", err)
 	}
 
-	height, err := strconv.Atoi(dimensions[1])
+	height, err := strconv.Atoi(dimensions[1]) // hauteur
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse height: %v", err)
 	}
 
 	if magicNumber == "P4" {
-		height *= 8
+		width *= 8
 	}
-
 
 	// Read data
 	var data [][]bool
@@ -91,7 +87,8 @@ func ReadPBM(filename string) (*PBM, error) {
 			}
 		}
 		if magicNumber == "P4" {
-			for i, token := range tokens {
+			i := 0
+			for _, token := range tokens {
 				token = strings.TrimPrefix(token, "0x")
 				for _, digit := range token {
 					digitValue, err := strconv.ParseUint(string(digit), 16, 4)
@@ -108,10 +105,10 @@ func ReadPBM(filename string) (*PBM, error) {
 				for _, value := range binaryBits {
 					if value == "1" {
 						row[i] = true
+						i++
 					} else if value == "0" {
 						row[i] = false
-					}else if value == " " {
-						continue
+						i++
 					} else {
 						return nil, fmt.Errorf("invalid character in data: %v", value)
 					}
@@ -119,8 +116,6 @@ func ReadPBM(filename string) (*PBM, error) {
 			}
 		}
 		data = append(data, row)
-		fmt.Println(binaryBits)
-		fmt.Println(row)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -133,14 +128,6 @@ func ReadPBM(filename string) (*PBM, error) {
 		Height:      height,
 		MagicNumber: magicNumber,
 	}, nil
-}
-
-func HexToBinary(hexString string) (string, error) {
-	hexValue, err := strconv.ParseInt(hexString, 16, 8)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%08b", hexValue), nil
 }
 
 func (pbm *PBM) Size() (int, int) {
