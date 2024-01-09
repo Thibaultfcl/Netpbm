@@ -67,7 +67,7 @@ func ReadPBM(filename string) (*PBM, error) {
 	// Read data
 	var data [][]bool
 	for scanner.Scan() {
-		var binaryBits []string
+		var binaryValue []string
 		line := scanner.Text()
 		tokens := strings.Fields(line)
 		row := make([]bool, width)
@@ -96,13 +96,13 @@ func ReadPBM(filename string) (*PBM, error) {
 						return nil, err
 					}
 					binaryDigits := strings.Split(fmt.Sprintf("%04b", digitValue), "")
-					binaryBits = append(binaryBits, binaryDigits...)
+					binaryValue = append(binaryValue, binaryDigits...)
 				}
 
 				if i >= width {
 					break
 				}
-				for _, value := range binaryBits {
+				for _, value := range binaryValue {
 					if value == "1" {
 						row[i] = true
 						i++
@@ -142,26 +142,50 @@ func (pbm *PBM) Set(x, y int, value bool) {
 	pbm.Data[x][y] = value
 }
 
-func (pbm *PBM) Save(filename string) error {           // not finished wet
+func (pbm *PBM) Save(filename string) error { 										// not finished wet
 	file, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("error creating file: %v", err)
 	}
 	defer file.Close()
 
+	Width := pbm.Width
+	if pbm.MagicNumber == "P4" {
+		Width /= 8
+	}
+
 	// Write PBM information to the file
 	fmt.Fprintf(file, "%s\n", pbm.MagicNumber)
 	fmt.Fprintf(file, "# saved file\n")
-	fmt.Fprintf(file, "%d %d\n", pbm.Width, pbm.Height)
-	for _, row := range pbm.Data {
-		for _, pixel := range row {
-			if pixel {
-				fmt.Fprint(file, "1")
-			} else {
-				fmt.Fprint(file, "0")
+	fmt.Fprintf(file, "%d %d\n", Width, pbm.Height)
+	if pbm.MagicNumber == "P1" {
+		for _, row := range pbm.Data {
+			for _, pixel := range row {
+				if pixel {
+					fmt.Fprint(file, "1")
+				} else {
+					fmt.Fprint(file, "0")
+				}
+				fmt.Fprint(file, " ")
 			}
+			fmt.Fprintln(file)
 		}
-		fmt.Fprintln(file)
+	}
+
+	if pbm.MagicNumber == "P4" {
+		for _, row := range pbm.Data {
+			var packedByte byte
+			for i, pixel := range row {
+				if pixel {
+					packedByte |= 1 << (7 - i%8)
+				}
+				if i%8 == 7 || i == len(row)-1 {
+					fmt.Fprintf(file, "0x%02X ", packedByte)
+					packedByte = 0
+				}
+			}
+			fmt.Fprintln(file)
+		}
 	}
 
 	fmt.Printf("File created: %s\n", filename)
@@ -195,5 +219,17 @@ func (pbm *PBM) Flop() {
 		for i, j := 0, pbm.Height-1; i < j; i, j = i+1, j-1 {
 			pbm.Data[i][y], pbm.Data[j][y] = pbm.Data[j][y], pbm.Data[i][y]
 		}
+	}
+}
+
+func (pbm *PBM) SetMagicNumber(magicNumber string) { 									// not finished wet
+	if magicNumber == pbm.MagicNumber {
+		fmt.Printf("Magic Number already set to %s\n", pbm.MagicNumber)
+	} else if magicNumber == "P4" && pbm.MagicNumber == "P1" {
+		pbm.MagicNumber = "P4"
+	} else if magicNumber == "P1" && pbm.MagicNumber == "P4" {
+		pbm.MagicNumber = "P1"
+	} else {
+		fmt.Printf("Please select a valid magic number (P1 or P4) your curent file is set to %s\n", pbm.MagicNumber)
 	}
 }
