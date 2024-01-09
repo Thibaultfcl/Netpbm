@@ -98,20 +98,16 @@ func ReadPBM(filename string) (*PBM, error) {
 					binaryDigits := strings.Split(fmt.Sprintf("%04b", digitValue), "")
 					binaryValue = append(binaryValue, binaryDigits...)
 				}
-
-				if i >= width {
-					break
-				}
-				for _, value := range binaryValue {
-					if value == "1" {
-						row[i] = true
-						i++
-					} else if value == "0" {
-						row[i] = false
-						i++
-					} else {
-						return nil, fmt.Errorf("invalid character in data: %v", value)
-					}
+			}
+			for _, value := range binaryValue {
+				if value == "1" {
+					row[i] = true
+					i++
+				} else if value == "0" {
+					row[i] = false
+					i++
+				} else {
+					return nil, fmt.Errorf("invalid character in data: %v", value)
 				}
 			}
 		}
@@ -142,7 +138,7 @@ func (pbm *PBM) Set(x, y int, value bool) {
 	pbm.Data[x][y] = value
 }
 
-func (pbm *PBM) Save(filename string) error { 										// not finished wet
+func (pbm *PBM) Save(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("error creating file: %v", err)

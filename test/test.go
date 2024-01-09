@@ -35,5 +35,5 @@ func main() {
 		fmt.Println()
 	}
 
-	pbm.Save("save.pbm")
+	// pbm.Save("save.pbm")
 }
