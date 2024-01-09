@@ -23,6 +23,7 @@ func ReadPBM(filename string) (*PBM, error) {
 
 	scanner := bufio.NewScanner(file)
 
+
 	// Read magic number
 	if !scanner.Scan() {
 		return nil, fmt.Errorf("failed to read magic number")
@@ -33,6 +34,7 @@ func ReadPBM(filename string) (*PBM, error) {
 		return nil, fmt.Errorf("unsupported PBM format: %s", magicNumber)
 	}
 
+	
 	// Skip comments and empty lines
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -40,6 +42,7 @@ func ReadPBM(filename string) (*PBM, error) {
 			break
 		}
 	}
+
 
 	// Read width and height
 	if scanner.Err() != nil {
@@ -60,12 +63,19 @@ func ReadPBM(filename string) (*PBM, error) {
 		return nil, fmt.Errorf("failed to parse height: %v", err)
 	}
 
+	if magicNumber == "P4" {
+		height *= 8
+	}
+
+
 	// Read data
 	var data [][]bool
 	for scanner.Scan() {
+		var binaryBits []string
 		line := scanner.Text()
 		tokens := strings.Fields(line)
 		row := make([]bool, width)
+
 		if magicNumber == "P1" {
 			for i, token := range tokens {
 				if i >= width {
@@ -81,19 +91,36 @@ func ReadPBM(filename string) (*PBM, error) {
 			}
 		}
 		if magicNumber == "P4" {
-			for _, hexValue := range tokens {
-				val, _ := strconv.ParseInt(hexValue, 16, 8)
-				binaryValue := fmt.Sprintf("%08b", val)
-				for _, bit := range binaryValue {
-					if bit == '1' {
-						row = append(row, true)
+			for i, token := range tokens {
+				token = strings.TrimPrefix(token, "0x")
+				for _, digit := range token {
+					digitValue, err := strconv.ParseUint(string(digit), 16, 4)
+					if err != nil {
+						return nil, err
+					}
+					binaryDigits := strings.Split(fmt.Sprintf("%04b", digitValue), "")
+					binaryBits = append(binaryBits, binaryDigits...)
+				}
+
+				if i >= width {
+					break
+				}
+				for _, value := range binaryBits {
+					if value == "1" {
+						row[i] = true
+					} else if value == "0" {
+						row[i] = false
+					}else if value == " " {
+						continue
 					} else {
-						row = append(row, false)
+						return nil, fmt.Errorf("invalid character in data: %v", value)
 					}
 				}
 			}
 		}
 		data = append(data, row)
+		fmt.Println(binaryBits)
+		fmt.Println(row)
 	}
 
 	if err := scanner.Err(); err != nil {
