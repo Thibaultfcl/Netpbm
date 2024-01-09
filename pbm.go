@@ -143,8 +143,7 @@ func (pbm *PBM) Set(x, y int, value bool) {
 }
 
 func (pbm *PBM) Save(filename string) error {
-	fileName := "save.pbm"
-	file, err := os.Create(fileName)
+	file, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("error creating file: %v", err)
 	}
@@ -165,6 +164,20 @@ func (pbm *PBM) Save(filename string) error {
 		fmt.Fprintln(file)
 	}
 
-	fmt.Printf("File created: %s\n", fileName)
+	fmt.Printf("File created: %s\n", filename)
 	return nil
+}
+
+func (pbm *PBM) Invert() {
+	fmt.Println(pbm.Height)
+	fmt.Println(pbm.Width)
+	for x := 0; x < pbm.Height; x++ {
+		for y := 0; y < pbm.Width; y++ {
+			if pbm.Data[x][y] {
+				pbm.Data[x][y] = false
+			} else {
+				pbm.Data[x][y] = true
+			}
+		}
+	}
 }

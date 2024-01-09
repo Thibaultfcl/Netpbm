@@ -16,6 +16,7 @@ func main() {
 
 	Width, Height := pbm.Size()
 	pbm.Set(0, 0, true)
+	pbm.Invert()
 
 	fmt.Printf("Magic Number: %s\n", pbm.MagicNumber)
 	fmt.Println("Width: ", Width)
@@ -31,4 +32,6 @@ func main() {
 		}
 		fmt.Println()
 	}
+
+	pbm.Save("save.pbm")
 }
