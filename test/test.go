@@ -19,6 +19,7 @@ func main() {
 	// pbm.Invert()
 	// pbm.Flip()
 	// pbm.Flop()
+	// pbm.SetMagicNumber("P1")
 
 	fmt.Printf("Magic Number: %s\n", pbm.MagicNumber)
 	fmt.Println("Width: ", Width)

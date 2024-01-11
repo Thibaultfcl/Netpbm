@@ -148,6 +148,9 @@ func (pbm *PBM) Save(filename string) error {
 	Width := pbm.Width
 	if pbm.MagicNumber == "P4" {
 		Width /= 8
+		if Width <= 0 {
+			Width = 1
+		}
 	}
 
 	// Write PBM information to the file
@@ -218,7 +221,7 @@ func (pbm *PBM) Flop() {
 	}
 }
 
-func (pbm *PBM) SetMagicNumber(magicNumber string) { 									// not finished wet
+func (pbm *PBM) SetMagicNumber(magicNumber string) {
 	if magicNumber == pbm.MagicNumber {
 		fmt.Printf("Magic Number already set to %s\n", pbm.MagicNumber)
 	} else if magicNumber == "P4" && pbm.MagicNumber == "P1" {
