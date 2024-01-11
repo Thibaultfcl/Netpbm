@@ -65,29 +65,42 @@ func ReadPGM(filename string) (*PGM, error) {
 		width *= 8
 	}
 
+	// Read maximum pixel value
+	if !scanner.Scan() {
+		return nil, fmt.Errorf("failed to read max value")
+	}
+	maxInt, err := strconv.Atoi(scanner.Text())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse max value: %v", err)
+	}
+
 	// Read data
 	var data [][]uint8
+
 	for scanner.Scan() {
 		var binaryValue []string
 		line := scanner.Text()
 		tokens := strings.Fields(line)
 		row := make([]uint8, width)
 
-		if magicNumber == "P1" {
+		if magicNumber == "P2" {
 			for i, token := range tokens {
 				if i >= width {
 					break
 				}
-				if token == "1" {
-					row[i] = true
-				} else if token == "0" {
-					row[i] = false
-				} else {
+				value, err := strconv.Atoi(token)
+				if err != nil {
 					return nil, fmt.Errorf("invalid character in data: %s", token)
+				}
+
+				if value >= 0 && value <= maxInt {
+					row[i] = uint8(value)
+				} else {
+					return nil, fmt.Errorf("value out of range: %d", value)
 				}
 			}
 		}
-		if magicNumber == "P4" {
+		if magicNumber == "P5" {
 			i := 0
 			for _, token := range tokens {
 				token = strings.TrimPrefix(token, "0x")
@@ -100,15 +113,19 @@ func ReadPGM(filename string) (*PGM, error) {
 					binaryValue = append(binaryValue, binaryDigits...)
 				}
 			}
-			for _, value := range binaryValue {
-				if value == "1" {
-					row[i] = true
-					i++
-				} else if value == "0" {
-					row[i] = false
-					i++
+			for _, token := range binaryValue {
+				if i >= width {
+					break
+				}
+				value, err := strconv.Atoi(token)
+				if err != nil {
+					return nil, fmt.Errorf("invalid character in data: %s", token)
+				}
+
+				if value >= 0 && value <= maxInt {
+					row[i] = uint8(value)
 				} else {
-					return nil, fmt.Errorf("invalid character in data: %v", value)
+					return nil, fmt.Errorf("value out of range: %d", value)
 				}
 			}
 		}

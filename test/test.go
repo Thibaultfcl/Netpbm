@@ -7,31 +7,21 @@ import (
 )
 
 func main() {
-	filename := "testP4.pbm"
-	pbm, err := netpbm.ReadPBM(filename)
+	filename := "testP2.pbm"
+	pgm, err := netpbm.ReadPGM(filename)
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
 	}
 
-	Width, Height := pbm.Size()
-	// pbm.Set(0, 0, true)
-	// pbm.Invert()
-	// pbm.Flip()
-	// pbm.Flop()
-	// pbm.SetMagicNumber("P1")
-
-	fmt.Printf("Magic Number: %s\n", pbm.MagicNumber)
-	fmt.Println("Width: ", Width)
-	fmt.Println("Height: ", Height)
+	fmt.Printf("Magic Number: %s\n", pgm.MagicNumber)
+	fmt.Println("Width: ", pgm.Width)
+	fmt.Println("Height: ", pgm.Height)
+	fmt.Println("Max Int: ", pgm.Max)
 	fmt.Println("Data:")
-	for _, row := range pbm.Data {
+	for _, row := range pgm.Data {
 		for _, pixel := range row {
-			if pixel {
-				fmt.Print("■")
-			} else {
-				fmt.Print("□")
-			}
+			fmt.Print(pixel)
 		}
 		fmt.Println()
 	}
