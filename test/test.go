@@ -26,4 +26,6 @@ func main() {
 		}
 		fmt.Println()
 	}
+
+	pgm.Save("save.pgm")
 }

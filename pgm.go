@@ -154,47 +154,41 @@ func (pgm *PGM) Save(filename string) error {
 	}
 	defer file.Close()
 
-	Width := pgm.Width
-	if pgm.MagicNumber == "P4" {
-		Width /= 8
-		if Width <= 0 {
-			Width = 1
-		}
-	}
-
 	// Write PBM information to the file
 	fmt.Fprintf(file, "%s\n", pgm.MagicNumber)
 	fmt.Fprintf(file, "# saved file\n")
-	fmt.Fprintf(file, "%d %d\n", Width, pgm.Height)
+	fmt.Fprintf(file, "%d %d\n", pgm.Width, pgm.Height)
+	fmt.Fprintf(file, "%d\n", pgm.Max)
 
 	if pgm.MagicNumber == "P2" {
 		for _, row := range pgm.Data {
 			for _, pixel := range row {
-				fmt.Fprint(file, pixel)
-				fmt.Fprint(file, " ")
+				fmt.Fprintf(file, "%d ", pixel)
 			}
 			fmt.Fprintln(file)
 		}
 	}
 
-	// if pgm.MagicNumber == "P5" {
-	// 	for _, row := range pgm.Data {
-	// 		var packedByte byte
-	// 		for i, pixel := range row {
-	// 			if pixel {
-	// 				packedByte |= 1 << (7 - i%8)
-	// 			}
-	// 			if i%8 == 7 || i == len(row)-1 {
-	// 				fmt.Fprintf(file, "0x%02X ", packedByte)
-	// 				packedByte = 0
-	// 			}
-	// 		}
-	// 		fmt.Fprintln(file)
-	// 	}
-	// }
+	if pgm.MagicNumber == "P5" {
+		for _, row := range pgm.Data {
+			for _, value := range row {
+				str := fmt.Sprintf("0x%02x", value)
+				fmt.Fprintf(file, "%s ", str)
+			}
+			fmt.Fprintln(file)
+		}
+	}
 
 	fmt.Printf("File created: %s\n", filename)
 	return nil
+}
+
+func (pgm *PGM) Invert() {
+	for i, row := range pgm.Data {
+		for j, value := range row {
+			pgm.Data[i][j] = uint8(pgm.Max) - value
+		}
+	}
 }
 
 func (pgm *PGM) Flip() {
@@ -212,3 +206,41 @@ func (pgm *PGM) Flop() {
 		}
 	}
 }
+
+func (pgm *PGM) SetMagicNumber(magicNumber string) {
+	if magicNumber == pgm.MagicNumber {
+		fmt.Printf("Magic Number already set to %s\n", pgm.MagicNumber)
+	} else if magicNumber == "P2" && pgm.MagicNumber == "P5" {
+		pgm.MagicNumber = "P2"
+	} else if magicNumber == "P5" && pgm.MagicNumber == "P2" {
+		pgm.MagicNumber = "P5"
+	} else {
+		fmt.Printf("Please select a valid magic number (P1 or P4) your curent file is set to %s\n", pgm.MagicNumber)
+	}
+}
+
+func (pgm *PGM) SetMaxValue(maxValue uint8) {
+	pgm.Max = int(maxValue)
+}
+
+func (pgm *PGM) Rotate90CW() {
+	rotatedData := make([][]uint8, pgm.Width)
+	for i := range rotatedData {
+		rotatedData[i] = make([]uint8, pgm.Height)
+	}
+
+	for i := 0; i < pgm.Height; i++ {
+		for j := 0; j < pgm.Width; j++ {
+			rotatedData[j][pgm.Height-i-1] = pgm.Data[i][j]
+		}
+	}
+
+	pgm.Data = rotatedData
+	Width := pgm.Width
+	pgm.Width = pgm.Height
+	pgm.Height = Width
+}
+
+// func (pgm *PGM) ToPBM() *PBM{
+//     // ...
+// }
