@@ -1,4 +1,4 @@
-package netpbm
+package Netpbm
 
 import (
 	"bufio"
@@ -9,10 +9,10 @@ import (
 )
 
 type PGM struct {
-	Data          [][]uint8
-	Width, Height int
-	MagicNumber   string
-	Max           int
+	data          [][]uint8
+	width, height int
+	magicNumber   string
+	max           int
 }
 
 func ReadPGM(filename string) (*PGM, error) {
@@ -127,24 +127,24 @@ func ReadPGM(filename string) (*PGM, error) {
 	}
 
 	return &PGM{
-		Data:        data,
-		Width:       width,
-		Height:      height,
-		MagicNumber: magicNumber,
-		Max:         maxInt,
+		data:        data,
+		width:       width,
+		height:      height,
+		magicNumber: magicNumber,
+		max:         maxInt,
 	}, nil
 }
 
 func (pgm *PGM) Size() (int, int) {
-	return pgm.Width, pgm.Height
+	return pgm.width, pgm.height
 }
 
 func (pgm *PGM) At(x, y int) uint8 {
-	return pgm.Data[x][y]
+	return pgm.data[x][y]
 }
 
 func (pgm *PGM) Set(x, y int, value uint8) {
-	pgm.Data[x][y] = value
+	pgm.data[x][y] = value
 }
 
 func (pgm *PGM) Save(filename string) error {
@@ -155,13 +155,13 @@ func (pgm *PGM) Save(filename string) error {
 	defer file.Close()
 
 	// Write PBM information to the file
-	fmt.Fprintf(file, "%s\n", pgm.MagicNumber)
+	fmt.Fprintf(file, "%s\n", pgm.magicNumber)
 	fmt.Fprintf(file, "# saved file\n")
-	fmt.Fprintf(file, "%d %d\n", pgm.Width, pgm.Height)
-	fmt.Fprintf(file, "%d\n", pgm.Max)
+	fmt.Fprintf(file, "%d %d\n", pgm.width, pgm.height)
+	fmt.Fprintf(file, "%d\n", pgm.max)
 
-	if pgm.MagicNumber == "P2" {
-		for _, row := range pgm.Data {
+	if pgm.magicNumber == "P2" {
+		for _, row := range pgm.data {
 			for _, pixel := range row {
 				fmt.Fprintf(file, "%d ", pixel)
 			}
@@ -169,8 +169,8 @@ func (pgm *PGM) Save(filename string) error {
 		}
 	}
 
-	if pgm.MagicNumber == "P5" {
-		for _, row := range pgm.Data {
+	if pgm.magicNumber == "P5" {
+		for _, row := range pgm.data {
 			for _, value := range row {
 				str := fmt.Sprintf("0x%02x", value)
 				fmt.Fprintf(file, "%s ", str)
@@ -184,61 +184,61 @@ func (pgm *PGM) Save(filename string) error {
 }
 
 func (pgm *PGM) Invert() {
-	for i, row := range pgm.Data {
+	for i, row := range pgm.data {
 		for j, value := range row {
-			pgm.Data[i][j] = uint8(pgm.Max) - value
+			pgm.data[i][j] = uint8(pgm.max) - value
 		}
 	}
 }
 
 func (pgm *PGM) Flip() {
-	for x := 0; x < pgm.Height; x++ {
-		for i, j := 0, pgm.Width-1; i < j; i, j = i+1, j-1 {
-			pgm.Data[x][i], pgm.Data[x][j] = pgm.Data[x][j], pgm.Data[x][i]
+	for x := 0; x < pgm.height; x++ {
+		for i, j := 0, pgm.width-1; i < j; i, j = i+1, j-1 {
+			pgm.data[x][i], pgm.data[x][j] = pgm.data[x][j], pgm.data[x][i]
 		}
 	}
 }
 
 func (pgm *PGM) Flop() {
-	for y := 0; y < pgm.Width; y++ {
-		for i, j := 0, pgm.Height-1; i < j; i, j = i+1, j-1 {
-			pgm.Data[i][y], pgm.Data[j][y] = pgm.Data[j][y], pgm.Data[i][y]
+	for y := 0; y < pgm.width; y++ {
+		for i, j := 0, pgm.height-1; i < j; i, j = i+1, j-1 {
+			pgm.data[i][y], pgm.data[j][y] = pgm.data[j][y], pgm.data[i][y]
 		}
 	}
 }
 
 func (pgm *PGM) SetMagicNumber(magicNumber string) {
-	if magicNumber == pgm.MagicNumber {
-		fmt.Printf("Magic Number already set to %s\n", pgm.MagicNumber)
-	} else if magicNumber == "P2" && pgm.MagicNumber == "P5" {
-		pgm.MagicNumber = "P2"
-	} else if magicNumber == "P5" && pgm.MagicNumber == "P2" {
-		pgm.MagicNumber = "P5"
+	if magicNumber == pgm.magicNumber {
+		fmt.Printf("Magic Number already set to %s\n", pgm.magicNumber)
+	} else if magicNumber == "P2" && pgm.magicNumber == "P5" {
+		pgm.magicNumber = "P2"
+	} else if magicNumber == "P5" && pgm.magicNumber == "P2" {
+		pgm.magicNumber = "P5"
 	} else {
-		fmt.Printf("Please select a valid magic number (P1 or P4) your curent file is set to %s\n", pgm.MagicNumber)
+		fmt.Printf("Please select a valid magic number (P1 or P4) your curent file is set to %s\n", pgm.magicNumber)
 	}
 }
 
 func (pgm *PGM) SetMaxValue(maxValue uint8) {
-	pgm.Max = int(maxValue)
+	pgm.max = int(maxValue)
 }
 
 func (pgm *PGM) Rotate90CW() {
-	rotatedData := make([][]uint8, pgm.Width)
+	rotatedData := make([][]uint8, pgm.width)
 	for i := range rotatedData {
-		rotatedData[i] = make([]uint8, pgm.Height)
+		rotatedData[i] = make([]uint8, pgm.height)
 	}
 
-	for i := 0; i < pgm.Height; i++ {
-		for j := 0; j < pgm.Width; j++ {
-			rotatedData[j][pgm.Height-i-1] = pgm.Data[i][j]
+	for i := 0; i < pgm.height; i++ {
+		for j := 0; j < pgm.width; j++ {
+			rotatedData[j][pgm.height-i-1] = pgm.data[i][j]
 		}
 	}
 
-	pgm.Data = rotatedData
-	Width := pgm.Width
-	pgm.Width = pgm.Height
-	pgm.Height = Width
+	pgm.data = rotatedData
+	Width := pgm.width
+	pgm.width = pgm.height
+	pgm.height = Width
 }
 
 // func (pgm *PGM) ToPBM() *PBM{

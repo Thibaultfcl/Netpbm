@@ -1,4 +1,4 @@
-package netpbm
+package Netpbm
 
 import (
 	"bufio"
@@ -9,9 +9,9 @@ import (
 )
 
 type PBM struct {
-	Data          [][]bool
-	Width, Height int
-	MagicNumber   string
+	data          [][]bool
+	width, height int
+	magicNumber   string
 }
 
 func ReadPBM(filename string) (*PBM, error) {
@@ -119,23 +119,23 @@ func ReadPBM(filename string) (*PBM, error) {
 	}
 
 	return &PBM{
-		Data:        data,
-		Width:       width,
-		Height:      height,
-		MagicNumber: magicNumber,
+		data:        data,
+		width:       width,
+		height:      height,
+		magicNumber: magicNumber,
 	}, nil
 }
 
 func (pbm *PBM) Size() (int, int) {
-	return pbm.Width, pbm.Height
+	return pbm.width, pbm.height
 }
 
 func (pbm *PBM) At(x, y int) bool {
-	return pbm.Data[x][y]
+	return pbm.data[x][y]
 }
 
 func (pbm *PBM) Set(x, y int, value bool) {
-	pbm.Data[x][y] = value
+	pbm.data[x][y] = value
 }
 
 func (pbm *PBM) Save(filename string) error {
@@ -145,8 +145,8 @@ func (pbm *PBM) Save(filename string) error {
 	}
 	defer file.Close()
 
-	Width := pbm.Width
-	if pbm.MagicNumber == "P4" {
+	Width := pbm.width
+	if pbm.magicNumber == "P4" {
 		Width /= 8
 		if Width <= 0 {
 			Width = 1
@@ -154,11 +154,11 @@ func (pbm *PBM) Save(filename string) error {
 	}
 
 	// Write PBM information to the file
-	fmt.Fprintf(file, "%s\n", pbm.MagicNumber)
+	fmt.Fprintf(file, "%s\n", pbm.magicNumber)
 	fmt.Fprintf(file, "# saved file\n")
-	fmt.Fprintf(file, "%d %d\n", Width, pbm.Height)
-	if pbm.MagicNumber == "P1" {
-		for _, row := range pbm.Data {
+	fmt.Fprintf(file, "%d %d\n", Width, pbm.height)
+	if pbm.magicNumber == "P1" {
+		for _, row := range pbm.data {
 			for _, pixel := range row {
 				if pixel {
 					fmt.Fprint(file, "1")
@@ -171,8 +171,8 @@ func (pbm *PBM) Save(filename string) error {
 		}
 	}
 
-	if pbm.MagicNumber == "P4" {
-		for _, row := range pbm.Data {
+	if pbm.magicNumber == "P4" {
+		for _, row := range pbm.data {
 			var packedByte byte
 			for i, pixel := range row {
 				if pixel {
@@ -192,43 +192,43 @@ func (pbm *PBM) Save(filename string) error {
 }
 
 func (pbm *PBM) Invert() {
-	fmt.Println(pbm.Height)
-	fmt.Println(pbm.Width)
-	for x := 0; x < pbm.Height; x++ {
-		for y := 0; y < pbm.Width; y++ {
-			if pbm.Data[x][y] {
-				pbm.Data[x][y] = false
+	fmt.Println(pbm.height)
+	fmt.Println(pbm.width)
+	for x := 0; x < pbm.height; x++ {
+		for y := 0; y < pbm.width; y++ {
+			if pbm.data[x][y] {
+				pbm.data[x][y] = false
 			} else {
-				pbm.Data[x][y] = true
+				pbm.data[x][y] = true
 			}
 		}
 	}
 }
 
 func (pbm *PBM) Flip() {
-	for x := 0; x < pbm.Height; x++ {
-		for i, j := 0, pbm.Width-1; i < j; i, j = i+1, j-1 {
-			pbm.Data[x][i], pbm.Data[x][j] = pbm.Data[x][j], pbm.Data[x][i]
+	for x := 0; x < pbm.height; x++ {
+		for i, j := 0, pbm.width-1; i < j; i, j = i+1, j-1 {
+			pbm.data[x][i], pbm.data[x][j] = pbm.data[x][j], pbm.data[x][i]
 		}
 	}
 }
 
 func (pbm *PBM) Flop() {
-	for y := 0; y < pbm.Width; y++ {
-		for i, j := 0, pbm.Height-1; i < j; i, j = i+1, j-1 {
-			pbm.Data[i][y], pbm.Data[j][y] = pbm.Data[j][y], pbm.Data[i][y]
+	for y := 0; y < pbm.width; y++ {
+		for i, j := 0, pbm.height-1; i < j; i, j = i+1, j-1 {
+			pbm.data[i][y], pbm.data[j][y] = pbm.data[j][y], pbm.data[i][y]
 		}
 	}
 }
 
 func (pbm *PBM) SetMagicNumber(magicNumber string) {
-	if magicNumber == pbm.MagicNumber {
-		fmt.Printf("Magic Number already set to %s\n", pbm.MagicNumber)
-	} else if magicNumber == "P4" && pbm.MagicNumber == "P1" {
-		pbm.MagicNumber = "P4"
-	} else if magicNumber == "P1" && pbm.MagicNumber == "P4" {
-		pbm.MagicNumber = "P1"
+	if magicNumber == pbm.magicNumber {
+		fmt.Printf("Magic Number already set to %s\n", pbm.magicNumber)
+	} else if magicNumber == "P4" && pbm.magicNumber == "P1" {
+		pbm.magicNumber = "P4"
+	} else if magicNumber == "P1" && pbm.magicNumber == "P4" {
+		pbm.magicNumber = "P1"
 	} else {
-		fmt.Printf("Please select a valid magic number (P1 or P4) your curent file is set to %s\n", pbm.MagicNumber)
+		fmt.Printf("Please select a valid magic number (P1 or P4) your curent file is set to %s\n", pbm.magicNumber)
 	}
 }
