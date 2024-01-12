@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	filename := "testP2.pbm"
+	filename := "testP5.pgm"
 	pgm, err := netpbm.ReadPGM(filename)
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -22,9 +22,8 @@ func main() {
 	for _, row := range pgm.Data {
 		for _, pixel := range row {
 			fmt.Print(pixel)
+			fmt.Print(" ")
 		}
 		fmt.Println()
 	}
-
-	// pbm.Save("save.pbm")
 }
