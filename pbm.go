@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"golang.org/x/text/encoding/charmap"
 )
 
 type PBM struct {
@@ -60,17 +62,19 @@ func ReadPBM(filename string) (*PBM, error) {
 		return nil, fmt.Errorf("failed to parse height: %v", err)
 	}
 
+	widthTab := width
 	if magicNumber == "P4" {
-		width *= 8
+		for widthTab%8 != 0 {
+			widthTab++
+		}
 	}
 
 	// Read data
 	var data [][]bool
 	for scanner.Scan() {
-		var binaryValue []string
 		line := scanner.Text()
 		tokens := strings.Fields(line)
-		row := make([]bool, width)
+		row := make([]bool, widthTab)
 
 		if magicNumber == "P1" {
 			for i, token := range tokens {
@@ -85,33 +89,41 @@ func ReadPBM(filename string) (*PBM, error) {
 					return nil, fmt.Errorf("invalid character in data: %s", token)
 				}
 			}
+			data = append(data, row)
 		}
 		if magicNumber == "P4" {
 			i := 0
-			for _, token := range tokens {
-				token = strings.TrimPrefix(token, "0x")
-				for _, digit := range token {
-					digitValue, err := strconv.ParseUint(string(digit), 16, 4)
-					if err != nil {
-						return nil, err
-					}
-					binaryDigits := strings.Split(fmt.Sprintf("%04b", digitValue), "")
-					binaryValue = append(binaryValue, binaryDigits...)
+			for _, value := range line {
+				asciiNb, err := ConvertToASCII(string(value))
+				if err != nil {
+					return nil, fmt.Errorf("failed to converse to Ascii: %v", err)
 				}
-			}
-			for _, value := range binaryValue {
-				if value == "1" {
-					row[i] = true
-					i++
-				} else if value == "0" {
-					row[i] = false
-					i++
-				} else {
-					return nil, fmt.Errorf("invalid character in data: %v", value)
+				binaryStr := fmt.Sprintf("%08b", asciiNb[:])
+				binaryStr = strings.TrimPrefix(binaryStr, "[")
+				binaryStr = strings.TrimSuffix(binaryStr, "]")
+
+				if i%2 == 0 {
+					row = make([]bool, 0)
+				}
+
+				for _, token := range binaryStr {
+					tokenStr := string(token)
+
+					if tokenStr == "1" {
+						row = append(row, true)
+					} else if tokenStr == "0" {
+						row = append(row, false)
+					} else {
+						return nil, fmt.Errorf("invalid character in data: %v", token)
+					}
+				}
+
+				i++
+				if i%2 == 0 {
+					data = append(data, row)
 				}
 			}
 		}
-		data = append(data, row)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -124,6 +136,25 @@ func ReadPBM(filename string) (*PBM, error) {
 		height:      height,
 		magicNumber: magicNumber,
 	}, nil
+}
+
+func ConvertToASCII(input string) ([]int, error) {
+	var result []int
+
+	encoder := charmap.Windows1252.NewEncoder()
+
+	for _, char := range input {
+		encodedChar, err := encoder.String(string(char))
+		if err != nil {
+			return nil, err
+		}
+
+		if len(encodedChar) == 1 {
+			result = append(result, int(encodedChar[0]))
+		}
+	}
+
+	return result, nil
 }
 
 func (pbm *PBM) Size() (int, int) {
@@ -145,18 +176,10 @@ func (pbm *PBM) Save(filename string) error {
 	}
 	defer file.Close()
 
-	Width := pbm.width
-	if pbm.magicNumber == "P4" {
-		Width /= 8
-		if Width <= 0 {
-			Width = 1
-		}
-	}
-
 	// Write PBM information to the file
 	fmt.Fprintf(file, "%s\n", pbm.magicNumber)
 	fmt.Fprintf(file, "# saved file\n")
-	fmt.Fprintf(file, "%d %d\n", Width, pbm.height)
+	fmt.Fprintf(file, "%d %d\n", pbm.width, pbm.height)
 	if pbm.magicNumber == "P1" {
 		for _, row := range pbm.data {
 			for _, pixel := range row {
@@ -172,18 +195,29 @@ func (pbm *PBM) Save(filename string) error {
 	}
 
 	if pbm.magicNumber == "P4" {
+		var intArray []int
 		for _, row := range pbm.data {
-			var packedByte byte
-			for i, pixel := range row {
-				if pixel {
-					packedByte |= 1 << (7 - i%8)
-				}
-				if i%8 == 7 || i == len(row)-1 {
-					fmt.Fprintf(file, "0x%02X ", packedByte)
-					packedByte = 0
+			for _, value := range row {
+				if value {
+					intArray = append(intArray, 1)
+				} else {
+					intArray = append(intArray, 0)
 				}
 			}
-			fmt.Fprintln(file)
+		}
+
+		var byteArrays [][]int
+		for i := 0; i < len(intArray); i += 8 {
+			byteArrays = append(byteArrays, intArray[i:i+8])
+		}
+
+		for _, byteArray := range byteArrays {
+			result, err := BinaryToWindows1252(byteArray)
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Fprint(file, result)
+			}
 		}
 	}
 
@@ -231,4 +265,35 @@ func (pbm *PBM) SetMagicNumber(magicNumber string) {
 	} else {
 		fmt.Printf("Please select a valid magic number (P1 or P4) your curent file is set to %s\n", pbm.magicNumber)
 	}
+}
+
+func BinaryToWindows1252(binaryArray []int) (string, error) {
+	if len(binaryArray)%8 != 0 {
+		return "", fmt.Errorf("the length of the binary array must be a multiple of 8")
+	}
+
+	var byteArray []byte
+	for i := 0; i < len(binaryArray); i += 8 {
+		byteValue, err := BinaryToDecimal(binaryArray[i : i+8])
+		if err != nil {
+			fmt.Println(err)
+		}
+		byteArray = append(byteArray, byte(byteValue))
+	}
+
+	return string(byteArray), nil
+}
+
+func BinaryToDecimal(binary []int) (int, error) {
+	binaryStr := ""
+	for _, bit := range binary {
+		binaryStr += strconv.Itoa(bit)
+	}
+
+	decimal, err := strconv.ParseInt(binaryStr, 2, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(decimal), nil
 }
