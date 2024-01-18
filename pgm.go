@@ -12,7 +12,7 @@ type PGM struct {
 	data          [][]uint8
 	width, height int
 	magicNumber   string
-	max           int
+	max           uint8
 }
 
 func ReadPGM(filename string) (*PGM, error) {
@@ -69,6 +69,7 @@ func ReadPGM(filename string) (*PGM, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse max value: %v", err)
 	}
+	max := uint8(maxInt)
 
 	// Read data
 	var data [][]uint8
@@ -131,7 +132,7 @@ func ReadPGM(filename string) (*PGM, error) {
 		width:       width,
 		height:      height,
 		magicNumber: magicNumber,
-		max:         maxInt,
+		max:         max,
 	}, nil
 }
 
@@ -220,7 +221,7 @@ func (pgm *PGM) SetMagicNumber(magicNumber string) {
 }
 
 func (pgm *PGM) SetMaxValue(maxValue uint8) {
-	pgm.max = int(maxValue)
+	pgm.max = maxValue
 }
 
 func (pgm *PGM) Rotate90CW() {
@@ -241,6 +242,18 @@ func (pgm *PGM) Rotate90CW() {
 	pgm.height = Width
 }
 
-// func (pgm *PGM) ToPBM() *PBM{
-//     // ...
-// }
+func (pgm *PGM) ToPBM() *PBM {
+	var dataResult [][]bool
+	for x := 0; x < pgm.height; x++ {
+		for y := 0; y < pgm.width; y++ {
+			if pgm.data[x][y] >= (pgm.max / 2) {
+				dataResult[x][y] = true
+			} else {
+				dataResult[x][y] = false
+			}
+		}
+	}
+	return &PBM{
+		data: dataResult,
+	}
+}
