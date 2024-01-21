@@ -3,11 +3,10 @@ package Netpbm
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
-
-	"golang.org/x/text/encoding/charmap"
 )
 
 type PBM struct {
@@ -23,138 +22,79 @@ func ReadPBM(filename string) (*PBM, error) {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	reader := bufio.NewReader(file)
 
 	// Read magic number
-	if !scanner.Scan() {
-		return nil, fmt.Errorf("failed to read magic number")
+	magicNumber, err := reader.ReadString('\n')
+	if err != nil {
+		return nil, fmt.Errorf("error reading magic number: %v", err)
 	}
-	magicNumber := scanner.Text()
-
+	magicNumber = strings.TrimSpace(magicNumber)
 	if magicNumber != "P1" && magicNumber != "P4" {
-		return nil, fmt.Errorf("unsupported PBM format: %s", magicNumber)
+		return nil, fmt.Errorf("invalid magic number: %s", magicNumber)
 	}
 
-	// Skip comments and empty lines
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if len(line) > 0 && line[0] != '#' {
-			break
-		}
-	}
-
-	// Read width and height
-	if scanner.Err() != nil {
-		return nil, fmt.Errorf("error reading dimensions line: %v", scanner.Err())
-	}
-	dimensions := strings.Fields(scanner.Text())
-	if len(dimensions) != 2 {
-		return nil, fmt.Errorf("invalid dimensions line")
-	}
-
-	width, err := strconv.Atoi(dimensions[0]) // largeur
+	// Read dimensions
+	dimensions, err := reader.ReadString('\n')
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse width: %v", err)
+		return nil, fmt.Errorf("error reading dimensions: %v", err)
 	}
-
-	height, err := strconv.Atoi(dimensions[1]) // hauteur
+	var width, height int
+	_, err = fmt.Sscanf(strings.TrimSpace(dimensions), "%d %d", &width, &height)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse height: %v", err)
-	}
-
-	widthTab := width
-	if magicNumber == "P4" {
-		for widthTab%8 != 0 {
-			widthTab++
-		}
+		return nil, fmt.Errorf("invalid dimensions: %v", err)
 	}
 
 	// Read data
-	var data [][]bool
-	for scanner.Scan() {
-		line := scanner.Text()
-		tokens := strings.Fields(line)
-		row := make([]bool, widthTab)
+	data := make([][]bool, height)
 
-		if magicNumber == "P1" {
-			for i, token := range tokens {
-				if i >= width {
-					break
-				}
-				if token == "1" {
-					row[i] = true
-				} else if token == "0" {
-					row[i] = false
-				} else {
-					return nil, fmt.Errorf("invalid character in data: %s", token)
-				}
+	for i := range data {
+		data[i] = make([]bool, width)
+	}
+
+	if magicNumber == "P1" {
+		for y := 0; y < height; y++ {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				return nil, fmt.Errorf("error reading data at row %d: %v", y, err)
 			}
-			data = append(data, row)
+			fields := strings.Fields(line)
+			for x, field := range fields {
+				if x >= width {
+					return nil, fmt.Errorf("index out of range at row %d", y)
+				}
+				data[y][x] = field == "1"
+			}
 		}
-		if magicNumber == "P4" {
-			i := 0
-			for _, value := range line {
-				asciiNb, err := ConvertToASCII(string(value))
-				if err != nil {
-					return nil, fmt.Errorf("failed to converse to Ascii: %v", err)
-				}
-				binaryStr := fmt.Sprintf("%08b", asciiNb[:])
-				binaryStr = strings.TrimPrefix(binaryStr, "[")
-				binaryStr = strings.TrimSuffix(binaryStr, "]")
 
-				if i%2 == 0 {
-					row = make([]bool, 0)
+	} else if magicNumber == "P4" {
+		expectedBytesPerRow := (width + 7) / 8
+		for y := 0; y < height; y++ {
+			row := make([]byte, expectedBytesPerRow)
+			n, err := reader.Read(row)
+			if err != nil {
+				if err == io.EOF {
+					return nil, fmt.Errorf("unexpected end of file at row %d", y)
 				}
+				return nil, fmt.Errorf("error reading pixel data at row %d: %v", y, err)
+			}
+			if n < expectedBytesPerRow {
+				return nil, fmt.Errorf("unexpected end of file at row %d, expected %d bytes, got %d", y, expectedBytesPerRow, n)
+			}
 
-				for _, token := range binaryStr {
-					tokenStr := string(token)
+			for x := 0; x < width; x++ {
+				byteIndex := x / 8
+				bitIndex := 7 - (x % 8)
 
-					if tokenStr == "1" {
-						row = append(row, true)
-					} else if tokenStr == "0" {
-						row = append(row, false)
-					} else {
-						return nil, fmt.Errorf("invalid character in data: %v", token)
-					}
-				}
+				decimalValue := int(row[byteIndex])
+				bitValue := (decimalValue >> bitIndex) & 1
 
-				i++
-				if i%2 == 0 {
-					data = append(data, row)
-				}
+				data[y][x] = bitValue != 0
 			}
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading file: %v", err)
-	}
-
-	return &PBM{
-		data:        data,
-		width:       width,
-		height:      height,
-		magicNumber: magicNumber,
-	}, nil
-}
-
-func ConvertToASCII(input string) ([]int, error) {
-	var result []int
-
-	encoder := charmap.Windows1252.NewEncoder()
-
-	for _, char := range input {
-		encodedChar, err := encoder.String(string(char))
-		if err != nil {
-			return nil, err
-		}
-
-		if len(encodedChar) == 1 {
-			result = append(result, int(encodedChar[0]))
-		}
-	}
-
-	return result, nil
+	return &PBM{data, width, height, magicNumber}, nil
 }
 
 func (pbm *PBM) Size() (int, int) {

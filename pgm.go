@@ -3,8 +3,8 @@ package Netpbm
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
-	"strconv"
 	"strings"
 )
 
@@ -22,118 +22,93 @@ func ReadPGM(filename string) (*PGM, error) {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	reader := bufio.NewReader(file)
 
 	// Read magic number
-	if !scanner.Scan() {
-		return nil, fmt.Errorf("failed to read magic number")
+	magicNumber, err := reader.ReadString('\n')
+	if err != nil {
+		return nil, fmt.Errorf("error reading magic number: %v", err)
 	}
-	magicNumber := scanner.Text()
-
+	magicNumber = strings.TrimSpace(magicNumber)
 	if magicNumber != "P2" && magicNumber != "P5" {
-		return nil, fmt.Errorf("unsupported PBM format: %s", magicNumber)
+		return nil, fmt.Errorf("invalid magic number: %s", magicNumber)
 	}
 
-	// Skip comments and empty lines
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if len(line) > 0 && line[0] != '#' {
-			break
-		}
-	}
-
-	// Read width and height
-	if scanner.Err() != nil {
-		return nil, fmt.Errorf("error reading dimensions line: %v", scanner.Err())
-	}
-	dimensions := strings.Fields(scanner.Text())
-	if len(dimensions) != 2 {
-		return nil, fmt.Errorf("invalid dimensions line")
-	}
-
-	width, err := strconv.Atoi(dimensions[0]) // largeur
+	// Read dimensions
+	dimensions, err := reader.ReadString('\n')
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse width: %v", err)
+		return nil, fmt.Errorf("error reading dimensions: %v", err)
+	}
+	var width, height int
+	_, err = fmt.Sscanf(strings.TrimSpace(dimensions), "%d %d", &width, &height)
+	if err != nil {
+		return nil, fmt.Errorf("invalid dimensions: %v", err)
+	}
+	if width <= 0 || height <= 0 {
+		return nil, fmt.Errorf("invalid dimensions: width and height must be positive")
 	}
 
-	height, err := strconv.Atoi(dimensions[1]) // hauteur
+	// Read max value
+	maxValue, err := reader.ReadString('\n')
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse height: %v", err)
+		return nil, fmt.Errorf("error reading max value: %v", err)
 	}
-
-	// Read maximum pixel value
-	if !scanner.Scan() {
-		return nil, fmt.Errorf("failed to read max value")
-	}
-	maxInt, err := strconv.Atoi(scanner.Text())
+	maxValue = strings.TrimSpace(maxValue)
+	var max int
+	_, err = fmt.Sscanf(maxValue, "%d", &max)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse max value: %v", err)
+		return nil, fmt.Errorf("invalid max value: %v", err)
 	}
-	max := uint8(maxInt)
 
 	// Read data
-	var data [][]uint8
+	data := make([][]uint8, height)
+	expectedBytesPerPixel := 1
 
-	for scanner.Scan() {
-		var decimalValues []uint8
-		line := scanner.Text()
-		tokens := strings.Fields(line)
-		row := make([]uint8, width)
-
-		if magicNumber == "P2" {
-			for i, token := range tokens {
-				if i >= width {
-					break
-				}
-				value, err := strconv.Atoi(token)
-				if err != nil {
-					return nil, fmt.Errorf("invalid character in data: %s", token)
-				}
-
-				if value >= 0 && value <= maxInt {
-					row[i] = uint8(value)
-				} else {
-					return nil, fmt.Errorf("value out of range: %d", value)
-				}
+	if magicNumber == "P2" {
+		for y := 0; y < height; y++ {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				return nil, fmt.Errorf("error reading data at row %d: %v", y, err)
 			}
+			fields := strings.Fields(line)
+			rowData := make([]uint8, width)
+			for x, field := range fields {
+				if x >= width {
+					return nil, fmt.Errorf("index out of range at row %d", y)
+				}
+				var pixelValue uint8
+				_, err := fmt.Sscanf(field, "%d", &pixelValue)
+				if err != nil {
+					return nil, fmt.Errorf("error parsing pixel value at row %d, column %d: %v", y, x, err)
+				}
+				rowData[x] = pixelValue
+			}
+			data[y] = rowData
 		}
-		if magicNumber == "P5" {
-			for _, token := range tokens {
-				decimalValue, err := strconv.ParseUint(token, 0, 8)
-				if err != nil {
-					return nil, fmt.Errorf("failed to convert in decimal: %v", err)
+	} else if magicNumber == "P5" {
+		for y := 0; y < height; y++ {
+			row := make([]byte, width*expectedBytesPerPixel)
+			n, err := reader.Read(row)
+			if err != nil {
+				if err == io.EOF {
+					return nil, fmt.Errorf("unexpected end of file at row %d", y)
 				}
-				decimalValues = append(decimalValues, uint8(decimalValue))
+				return nil, fmt.Errorf("error reading pixel data at row %d: %v", y, err)
+			}
+			if n < width*expectedBytesPerPixel {
+				return nil, fmt.Errorf("unexpected end of file at row %d, expected %d bytes, got %d", y, width*expectedBytesPerPixel, n)
 			}
 
-			for i, token := range decimalValues {
-				if i >= width {
-					break
-				}
-				if err != nil {
-					return nil, fmt.Errorf("invalid character in data: %v", token)
-				}
-				if int(token) <= maxInt {
-					row[i] = token
-				} else {
-					return nil, fmt.Errorf("value out of range: %d", token)
-				}
+			rowData := make([]uint8, width)
+			for x := 0; x < width; x++ {
+				pixelValue := uint8(row[x*expectedBytesPerPixel])
+				rowData[x] = pixelValue
 			}
+			data[y] = rowData
 		}
-		data = append(data, row)
 	}
 
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading file: %v", err)
-	}
-
-	return &PGM{
-		data:        data,
-		width:       width,
-		height:      height,
-		magicNumber: magicNumber,
-		max:         max,
-	}, nil
+	return &PGM{data, width, height, magicNumber, uint8(max)}, nil
 }
 
 func (pgm *PGM) Size() (int, int) {
